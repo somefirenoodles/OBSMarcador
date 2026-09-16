@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -20,8 +21,10 @@ extern "C" {
 using namespace Gdiplus;
 
 namespace {
-constexpr uint32_t WIDTH = 1200;
-constexpr uint32_t HEIGHT = 360;
+constexpr uint32_t WIDTH = 1280;
+constexpr uint32_t HEIGHT = 720;
+constexpr float RUN_FLASH_SECONDS = 0.6f;
+static_assert(WIDTH * 9 == HEIGHT * 16);
 ULONG_PTR gdiplus_token;
 
 std::wstring wide(const char *text)
@@ -46,6 +49,8 @@ public:
 	gs_texture_t *texture = nullptr;
 	std::vector<uint8_t> pixels;
 	bool texture_dirty = false;
+	float run_flash = 0.0f;
+	unsigned flash_team = 0;
 	std::mutex mutex;
 	std::array<obs_hotkey_id, 7> hotkeys{};
 
@@ -102,9 +107,22 @@ public:
 	{
 		std::lock_guard<std::mutex> lock(mutex);
 		if (scoreboard_apply(&board, action)) {
+			if (action == SCOREBOARD_AWAY_RUN || action == SCOREBOARD_HOME_RUN) {
+				flash_team = action == SCOREBOARD_AWAY_RUN ? 0 : 1;
+				run_flash = RUN_FLASH_SECONDS;
+			}
 			save();
 			render();
 		}
+	}
+
+	void tick(float seconds)
+	{
+		std::lock_guard<std::mutex> lock(mutex);
+		if (run_flash <= 0.0f)
+			return;
+		run_flash = std::max(0.0f, run_flash - seconds);
+		render();
 	}
 
 	void undo()
@@ -184,39 +202,45 @@ public:
 		const Color white(255, 245, 247, 250);
 		const Color muted(255, 180, 190, 205);
 		const Color red(255, 255, 91, 91);
-		draw_text(graphics, L"BOLA", RectF(35, 18, 115, 50), 27, muted);
-		draw_text(graphics, std::to_wstring(board.state.balls), RectF(145, 18, 55, 50), 35, red);
-		draw_text(graphics, L"STRIKE", RectF(220, 18, 135, 50), 27, muted);
-		draw_text(graphics, std::to_wstring(board.state.strikes), RectF(350, 18, 55, 50), 35, red);
-		draw_text(graphics, L"OUT", RectF(425, 18, 90, 50), 27, muted);
-		draw_text(graphics, std::to_wstring(board.state.outs), RectF(510, 18, 55, 50), 35, red);
+		draw_text(graphics, L"BOLA", RectF(35, 38, 115, 65), 30, muted);
+		draw_text(graphics, std::to_wstring(board.state.balls), RectF(145, 38, 55, 65), 42, red);
+		draw_text(graphics, L"STRIKE", RectF(220, 38, 135, 65), 30, muted);
+		draw_text(graphics, std::to_wstring(board.state.strikes), RectF(350, 38, 55, 65), 42, red);
+		draw_text(graphics, L"OUT", RectF(425, 38, 90, 65), 30, muted);
+		draw_text(graphics, std::to_wstring(board.state.outs), RectF(510, 38, 55, 65), 42, red);
 		std::wstring half = board.state.bottom ? L"BAJA " : L"ALTA ";
-		draw_text(graphics, half + std::to_wstring(board.state.inning + 1), RectF(880, 18, 270, 50), 30, white);
+		draw_text(graphics, half + std::to_wstring(board.state.inning + 1), RectF(930, 38, 300, 65), 38, white);
 
-		constexpr float name_x = 30, name_w = 260, cell_w = 105, header_y = 92, row_h = 88;
+		constexpr float name_x = 15, name_w = 250, cell_w = 120, header_y = 170, row_h = 190;
 		for (unsigned inning = 0; inning < SCOREBOARD_INNINGS; ++inning) {
 			const float x = name_x + name_w + inning * cell_w;
 			if (inning == board.state.inning)
 				graphics.FillRectangle(&active, RectF(x + 5, header_y, cell_w - 10, 38));
 			draw_text(graphics, std::to_wstring(inning + 1), RectF(x, header_y, cell_w, 38), 23, white);
 		}
-		draw_text(graphics, L"TOTAL", RectF(name_x + name_w + 7 * cell_w, header_y, cell_w + 60, 38), 21,
-			  muted);
+		draw_text(graphics, L"TOTAL", RectF(name_x + name_w + 7 * cell_w, header_y, 160, 55), 25, muted);
 
 		for (unsigned team = 0; team < 2; ++team) {
-			const float y = 135 + team * row_h;
+			const float y = 230 + team * row_h;
+			const float pulse = run_flash > 0.0f && team == flash_team
+						    ? std::sin((1.0f - run_flash / RUN_FLASH_SECONDS) * 3.14159265f)
+						    : 0.0f;
+			if (pulse > 0.0f) {
+				SolidBrush celebration(Color(static_cast<BYTE>(150 * pulse), 255, 176, 32));
+				graphics.FillRectangle(&celebration, RectF(0, y, WIDTH, row_h));
+			}
 			draw_text(graphics, wide(team == 0 ? away.c_str() : home.c_str()),
-				  RectF(name_x, y, name_w - 15, row_h), 30, white, StringAlignmentNear);
+				  RectF(name_x, y, name_w - 15, row_h), 36, white, StringAlignmentNear);
 			for (unsigned inning = 0; inning < SCOREBOARD_INNINGS; ++inning) {
 				const float x = name_x + name_w + inning * cell_w;
 				draw_text(graphics, std::to_wstring(board.state.runs[team][inning]),
-					  RectF(x, y, cell_w, row_h), 37, inning == board.state.inning ? red : white);
+					  RectF(x, y, cell_w, row_h), 50, inning == board.state.inning ? red : white);
 			}
 			draw_text(graphics, std::to_wstring(scoreboard_total(&board.state, team)),
-				  RectF(name_x + name_w + 7 * cell_w, y, cell_w + 60, row_h), 42, red);
+				  RectF(name_x + name_w + 7 * cell_w, y, 160, row_h), 58 + 14 * pulse, red);
 		}
-		graphics.DrawLine(&line, name_x, 132.0f, static_cast<float>(WIDTH - 30), 132.0f);
-		graphics.DrawLine(&line, name_x, 223.0f, static_cast<float>(WIDTH - 30), 223.0f);
+		graphics.DrawLine(&line, name_x, 225.0f, static_cast<float>(WIDTH - 15), 225.0f);
+		graphics.DrawLine(&line, name_x, 420.0f, static_cast<float>(WIDTH - 15), 420.0f);
 
 		BitmapData bits{};
 		Rect bounds(0, 0, WIDTH, HEIGHT);
@@ -317,6 +341,9 @@ extern "C" bool scoreboard_source_register(void)
 			while (gs_effect_loop(effect, "Draw"))
 				obs_source_draw(scoreboard->texture, 0, 0, WIDTH, HEIGHT, false);
 		}
+	};
+	info.video_tick = [](void *data, float seconds) {
+		static_cast<ScoreboardSource *>(data)->tick(seconds);
 	};
 	obs_register_source(&info);
 	return true;
