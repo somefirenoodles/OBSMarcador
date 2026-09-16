@@ -19,16 +19,28 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <obs-module.h>
 #include <plugin-support.h>
 
+#ifdef _WIN32
+extern bool scoreboard_source_register(void);
+extern void scoreboard_source_unregister(void);
+#endif
+
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
 
 bool obs_module_load(void)
 {
+	#ifdef _WIN32
+	if (!scoreboard_source_register())
+		return false;
+	#endif
 	obs_log(LOG_INFO, "plugin loaded successfully (version %s)", PLUGIN_VERSION);
 	return true;
 }
 
 void obs_module_unload(void)
 {
+	#ifdef _WIN32
+	scoreboard_source_unregister();
+	#endif
 	obs_log(LOG_INFO, "plugin unloaded");
 }
