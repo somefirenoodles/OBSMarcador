@@ -29,18 +29,18 @@ OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
 
 bool obs_module_load(void)
 {
-	#ifdef _WIN32
+#ifdef _WIN32
 	if (!scoreboard_source_register())
 		return false;
-	#endif
+#endif
 	obs_log(LOG_INFO, "plugin loaded successfully (version %s)", PLUGIN_VERSION);
 	return true;
 }
 
 void obs_module_unload(void)
 {
-	#ifdef _WIN32
+#ifdef _WIN32
 	scoreboard_source_unregister();
-	#endif
+#endif
 	obs_log(LOG_INFO, "plugin unloaded");
 }

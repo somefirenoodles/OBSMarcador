@@ -5,8 +5,7 @@
 static void remember(struct scoreboard *board)
 {
 	if (board->history_count == SCOREBOARD_HISTORY) {
-		memmove(board->history, board->history + 1,
-			(SCOREBOARD_HISTORY - 1) * sizeof(*board->history));
+		memmove(board->history, board->history + 1, (SCOREBOARD_HISTORY - 1) * sizeof(*board->history));
 		--board->history_count;
 	}
 	board->history[board->history_count++] = board->state;

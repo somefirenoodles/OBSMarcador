@@ -64,14 +64,17 @@ public:
 
 	void register_hotkeys()
 	{
-		static const char *names[] = {"Softball.Ball", "Softball.Strike", "Softball.Out", "Softball.AwayRun",
-					      "Softball.HomeRun", "Softball.NextHalf", "Softball.Undo"};
-		static const char *labels[] = {"ScoreboardBall", "ScoreboardStrike", "ScoreboardOut", "ScoreboardAwayRun",
-					       "ScoreboardHomeRun", "ScoreboardNextHalf", "ScoreboardUndo"};
+		static const char *names[] = {"Softball.Ball",    "Softball.Strike",  "Softball.Out",
+					      "Softball.AwayRun", "Softball.HomeRun", "Softball.NextHalf",
+					      "Softball.Undo"};
+		static const char *labels[] = {"ScoreboardBall",    "ScoreboardStrike",  "ScoreboardOut",
+					       "ScoreboardAwayRun", "ScoreboardHomeRun", "ScoreboardNextHalf",
+					       "ScoreboardUndo"};
 		static const obs_key_t keys[] = {OBS_KEY_NUM1, OBS_KEY_NUM2, OBS_KEY_NUM3, OBS_KEY_NUM4,
-					     OBS_KEY_NUM6, OBS_KEY_NUM5, OBS_KEY_NUM0};
+						 OBS_KEY_NUM6, OBS_KEY_NUM5, OBS_KEY_NUM0};
 		for (size_t i = 0; i < hotkeys.size(); ++i) {
-			hotkeys[i] = obs_hotkey_register_source(source, names[i], obs_module_text(labels[i]), hotkey, this);
+			hotkeys[i] =
+				obs_hotkey_register_source(source, names[i], obs_module_text(labels[i]), hotkey, this);
 			obs_key_combination_t key{0, keys[i]};
 			obs_hotkey_load_bindings(hotkeys[i], &key, 1);
 		}
@@ -133,10 +136,13 @@ public:
 		std::lock_guard<std::mutex> lock(mutex);
 		away = obs_data_get_string(settings, "away_name");
 		home = obs_data_get_string(settings, "home_name");
-		board.state.balls = static_cast<unsigned char>(std::clamp(obs_data_get_int(settings, "balls"), 0LL, 3LL));
-		board.state.strikes = static_cast<unsigned char>(std::clamp(obs_data_get_int(settings, "strikes"), 0LL, 2LL));
+		board.state.balls =
+			static_cast<unsigned char>(std::clamp(obs_data_get_int(settings, "balls"), 0LL, 3LL));
+		board.state.strikes =
+			static_cast<unsigned char>(std::clamp(obs_data_get_int(settings, "strikes"), 0LL, 2LL));
 		board.state.outs = static_cast<unsigned char>(std::clamp(obs_data_get_int(settings, "outs"), 0LL, 2LL));
-		board.state.inning = static_cast<unsigned char>(std::clamp(obs_data_get_int(settings, "inning"), 0LL, 6LL));
+		board.state.inning =
+			static_cast<unsigned char>(std::clamp(obs_data_get_int(settings, "inning"), 0LL, 6LL));
 		board.state.bottom = obs_data_get_bool(settings, "bottom");
 		for (unsigned team = 0; team < 2; ++team)
 			for (unsigned inning = 0; inning < SCOREBOARD_INNINGS; ++inning) {
@@ -192,16 +198,17 @@ public:
 				graphics.FillRectangle(&active, RectF(x + 5, header_y, cell_w - 10, 38));
 			draw_text(graphics, std::to_wstring(inning + 1), RectF(x, header_y, cell_w, 38), 23, white);
 		}
-		draw_text(graphics, L"TOTAL", RectF(name_x + name_w + 7 * cell_w, header_y, cell_w + 60, 38), 21, muted);
+		draw_text(graphics, L"TOTAL", RectF(name_x + name_w + 7 * cell_w, header_y, cell_w + 60, 38), 21,
+			  muted);
 
 		for (unsigned team = 0; team < 2; ++team) {
 			const float y = 135 + team * row_h;
-			draw_text(graphics, wide(team == 0 ? away.c_str() : home.c_str()), RectF(name_x, y, name_w - 15, row_h),
-				  30, white, StringAlignmentNear);
+			draw_text(graphics, wide(team == 0 ? away.c_str() : home.c_str()),
+				  RectF(name_x, y, name_w - 15, row_h), 30, white, StringAlignmentNear);
 			for (unsigned inning = 0; inning < SCOREBOARD_INNINGS; ++inning) {
 				const float x = name_x + name_w + inning * cell_w;
-				draw_text(graphics, std::to_wstring(board.state.runs[team][inning]), RectF(x, y, cell_w, row_h),
-					  37, inning == board.state.inning ? red : white);
+				draw_text(graphics, std::to_wstring(board.state.runs[team][inning]),
+					  RectF(x, y, cell_w, row_h), 37, inning == board.state.inning ? red : white);
 			}
 			draw_text(graphics, std::to_wstring(scoreboard_total(&board.state, team)),
 				  RectF(name_x + name_w + 7 * cell_w, y, cell_w + 60, row_h), 42, red);
@@ -271,14 +278,24 @@ extern "C" bool scoreboard_source_register(void)
 	info.id = "softball_scoreboard";
 	info.type = OBS_SOURCE_TYPE_INPUT;
 	info.output_flags = OBS_SOURCE_VIDEO | OBS_SOURCE_CUSTOM_DRAW | OBS_SOURCE_SRGB;
-	info.get_name = [](void *) { return obs_module_text("SoftballScoreboard"); };
+	info.get_name = [](void *) {
+		return obs_module_text("SoftballScoreboard");
+	};
 	info.create = [](obs_data_t *settings, obs_source_t *source) -> void * {
 		return new ScoreboardSource(settings, source);
 	};
-	info.destroy = [](void *data) { delete static_cast<ScoreboardSource *>(data); };
-	info.update = [](void *data, obs_data_t *settings) { static_cast<ScoreboardSource *>(data)->update(settings); };
-	info.get_width = [](void *) { return WIDTH; };
-	info.get_height = [](void *) { return HEIGHT; };
+	info.destroy = [](void *data) {
+		delete static_cast<ScoreboardSource *>(data);
+	};
+	info.update = [](void *data, obs_data_t *settings) {
+		static_cast<ScoreboardSource *>(data)->update(settings);
+	};
+	info.get_width = [](void *) {
+		return WIDTH;
+	};
+	info.get_height = [](void *) {
+		return HEIGHT;
+	};
 	info.get_properties = properties;
 	info.get_defaults = [](obs_data_t *settings) {
 		obs_data_set_default_string(settings, "away_name", "VISITANTE");

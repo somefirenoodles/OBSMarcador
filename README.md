@@ -2,6 +2,14 @@
 
 Fuente nativa y transparente para OBS Studio en Windows. Mantiene bolas, strikes, outs, media entrada y carreras por entrada para dos equipos.
 
+## Instalación
+
+1. Descarga el instalador `.exe` más reciente desde [Releases](https://github.com/somefirenoodles/OBSMarcador/releases/latest).
+2. Cierra OBS, ejecuta el instalador y vuelve a abrir OBS.
+3. Pulsa **+** en Fuentes y elige **Marcador de Softball**.
+
+No requiere terminal, servidor, cuenta ni configuración de red.
+
 ## Uso
 
 1. Agrega la fuente **Marcador de Softball**.
@@ -27,7 +35,7 @@ Las mismas acciones aparecen como botones en las propiedades de la fuente. OBS p
 - Tres outs cambian de media entrada.
 - El partido usa siete entradas.
 
-## Desarrollo
+## Desarrollo (solo para programadores)
 
 La plantilla oficial descarga las dependencias de OBS durante la configuración:
 
