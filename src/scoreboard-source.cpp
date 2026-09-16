@@ -44,6 +44,8 @@ public:
 	std::string away = "VISITANTE";
 	std::string home = "LOCAL";
 	gs_texture_t *texture = nullptr;
+	std::vector<uint8_t> pixels;
+	bool texture_dirty = false;
 	std::mutex mutex;
 	std::array<obs_hotkey_id, 7> hotkeys{};
 
@@ -220,13 +222,11 @@ public:
 		Rect bounds(0, 0, WIDTH, HEIGHT);
 		if (bitmap.LockBits(&bounds, ImageLockModeRead, PixelFormat32bppPARGB, &bits) != Ok)
 			return;
-		const uint8_t *pixels = static_cast<uint8_t *>(bits.Scan0);
-		obs_enter_graphics();
-		if (!texture)
-			texture = gs_texture_create(WIDTH, HEIGHT, GS_BGRA, 1, &pixels, GS_DYNAMIC);
-		else
-			gs_texture_set_image(texture, pixels, static_cast<uint32_t>(bits.Stride), false);
-		obs_leave_graphics();
+		const auto *source_pixels = static_cast<const uint8_t *>(bits.Scan0);
+		pixels.resize(WIDTH * HEIGHT * 4);
+		for (uint32_t y = 0; y < HEIGHT; ++y)
+			memcpy(pixels.data() + y * WIDTH * 4, source_pixels + y * bits.Stride, WIDTH * 4);
+		texture_dirty = true;
 		bitmap.UnlockBits(&bits);
 	}
 };
@@ -304,8 +304,19 @@ extern "C" bool scoreboard_source_register(void)
 	info.video_render = [](void *data, gs_effect_t *) {
 		auto *scoreboard = static_cast<ScoreboardSource *>(data);
 		std::lock_guard<std::mutex> lock(scoreboard->mutex);
-		if (scoreboard->texture)
-			obs_source_draw(scoreboard->texture, 0, 0, WIDTH, HEIGHT, false);
+		if (scoreboard->texture_dirty) {
+			const uint8_t *pixels = scoreboard->pixels.data();
+			if (!scoreboard->texture)
+				scoreboard->texture = gs_texture_create(WIDTH, HEIGHT, GS_BGRA, 1, &pixels, GS_DYNAMIC);
+			else
+				gs_texture_set_image(scoreboard->texture, pixels, WIDTH * 4, false);
+			scoreboard->texture_dirty = false;
+		}
+		if (scoreboard->texture) {
+			gs_effect_t *effect = obs_get_base_effect(OBS_EFFECT_DEFAULT);
+			while (gs_effect_loop(effect, "Draw"))
+				obs_source_draw(scoreboard->texture, 0, 0, WIDTH, HEIGHT, false);
+		}
 	};
 	obs_register_source(&info);
 	return true;
