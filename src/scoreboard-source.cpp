@@ -24,6 +24,8 @@ namespace {
 constexpr uint32_t WIDTH = 1280;
 constexpr uint32_t HEIGHT = 720;
 constexpr float RUN_FLASH_SECONDS = 0.6f;
+constexpr float OUT_FLASH_SECONDS = 0.45f;
+constexpr float INNING_FLASH_SECONDS = 1.1f;
 static_assert(WIDTH * 9 == HEIGHT * 16);
 ULONG_PTR gdiplus_token;
 
@@ -50,6 +52,8 @@ public:
 	std::vector<uint8_t> pixels;
 	bool texture_dirty = false;
 	float run_flash = 0.0f;
+	float out_flash = 0.0f;
+	float inning_flash = 0.0f;
 	unsigned flash_team = 0;
 	std::mutex mutex;
 	std::array<obs_hotkey_id, 7> hotkeys{};
@@ -106,11 +110,18 @@ public:
 	void apply(scoreboard_action action)
 	{
 		std::lock_guard<std::mutex> lock(mutex);
+		const unsigned previous_outs = board.state.outs;
+		const unsigned previous_inning = board.state.inning;
+		const bool previous_bottom = board.state.bottom;
 		if (scoreboard_apply(&board, action)) {
 			if (action == SCOREBOARD_AWAY_RUN || action == SCOREBOARD_HOME_RUN) {
 				flash_team = action == SCOREBOARD_AWAY_RUN ? 0 : 1;
 				run_flash = RUN_FLASH_SECONDS;
 			}
+			if (board.state.inning != previous_inning || board.state.bottom != previous_bottom)
+				inning_flash = INNING_FLASH_SECONDS;
+			else if (board.state.outs != previous_outs)
+				out_flash = OUT_FLASH_SECONDS;
 			save();
 			render();
 		}
@@ -119,9 +130,11 @@ public:
 	void tick(float seconds)
 	{
 		std::lock_guard<std::mutex> lock(mutex);
-		if (run_flash <= 0.0f)
+		if (run_flash <= 0.0f && out_flash <= 0.0f && inning_flash <= 0.0f)
 			return;
 		run_flash = std::max(0.0f, run_flash - seconds);
+		out_flash = std::max(0.0f, out_flash - seconds);
+		inning_flash = std::max(0.0f, inning_flash - seconds);
 		render();
 	}
 
@@ -206,8 +219,15 @@ public:
 		draw_text(graphics, std::to_wstring(board.state.balls), RectF(145, 38, 55, 65), 42, red);
 		draw_text(graphics, L"STRIKE", RectF(220, 38, 135, 65), 30, muted);
 		draw_text(graphics, std::to_wstring(board.state.strikes), RectF(350, 38, 55, 65), 42, red);
-		draw_text(graphics, L"OUT", RectF(425, 38, 90, 65), 30, muted);
-		draw_text(graphics, std::to_wstring(board.state.outs), RectF(510, 38, 55, 65), 42, red);
+		const float out_pulse =
+			out_flash > 0.0f ? std::sin((1.0f - out_flash / OUT_FLASH_SECONDS) * 3.14159265f) : 0.0f;
+		if (out_pulse > 0.0f) {
+			SolidBrush out_glow(Color(static_cast<BYTE>(190 * out_pulse), 255, 40, 40));
+			graphics.FillRectangle(&out_glow, RectF(415, 25, 165, 90));
+		}
+		draw_text(graphics, L"OUT", RectF(425, 38, 90, 65), 30 + 5 * out_pulse, muted);
+		draw_text(graphics, std::to_wstring(board.state.outs), RectF(510, 38, 55, 65), 42 + 12 * out_pulse,
+			  red);
 		std::wstring half = board.state.bottom ? L"BAJA " : L"ALTA ";
 		draw_text(graphics, half + std::to_wstring(board.state.inning + 1), RectF(930, 38, 300, 65), 38, white);
 
@@ -241,6 +261,15 @@ public:
 		}
 		graphics.DrawLine(&line, name_x, 225.0f, static_cast<float>(WIDTH - 15), 225.0f);
 		graphics.DrawLine(&line, name_x, 420.0f, static_cast<float>(WIDTH - 15), 420.0f);
+
+		if (inning_flash > 0.0f) {
+			const float pulse = std::sin((1.0f - inning_flash / INNING_FLASH_SECONDS) * 3.14159265f);
+			SolidBrush shade(Color(static_cast<BYTE>(215 * pulse), 4, 7, 14));
+			graphics.FillRectangle(&shade, RectF(0, 210, WIDTH, 300));
+			const std::wstring change = board.state.bottom ? L"CAMBIO · BAJA " : L"CAMBIO · ALTA ";
+			draw_text(graphics, change + std::to_wstring(board.state.inning + 1), RectF(0, 210, WIDTH, 300),
+				  70 + 14 * pulse, Color(static_cast<BYTE>(255 * pulse), 255, 190, 45));
+		}
 
 		BitmapData bits{};
 		Rect bounds(0, 0, WIDTH, HEIGHT);
