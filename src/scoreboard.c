@@ -30,6 +30,21 @@ static void next_half(struct scoreboard_state *state)
 	}
 }
 
+static bool previous_half(struct scoreboard_state *state)
+{
+	clear_count(state);
+	state->outs = 0;
+	if (state->bottom) {
+		state->bottom = false;
+		return true;
+	}
+	if (state->inning == 0)
+		return false;
+	--state->inning;
+	state->bottom = true;
+	return true;
+}
+
 void scoreboard_init(struct scoreboard *board)
 {
 	memset(board, 0, sizeof(*board));
@@ -69,6 +84,22 @@ bool scoreboard_apply(struct scoreboard *board, enum scoreboard_action action)
 		break;
 	case SCOREBOARD_RESET_COUNT:
 		clear_count(&board->state);
+		break;
+	case SCOREBOARD_AWAY_RUN_REMOVE:
+	case SCOREBOARD_HOME_RUN_REMOVE: {
+		const unsigned team = action == SCOREBOARD_AWAY_RUN_REMOVE ? 0 : 1;
+		if (!board->state.runs[team][board->state.inning]) {
+			--board->history_count;
+			return false;
+		}
+		--board->state.runs[team][board->state.inning];
+		break;
+	}
+	case SCOREBOARD_PREVIOUS_HALF:
+		if (!previous_half(&board->state)) {
+			--board->history_count;
+			return false;
+		}
 		break;
 	default:
 		--board->history_count;

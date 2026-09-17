@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#define SCOREBOARD_INNINGS 7
+#define SCOREBOARD_INNINGS 6
 #define SCOREBOARD_HISTORY 64
 
 enum scoreboard_action {
@@ -14,6 +14,9 @@ enum scoreboard_action {
 	SCOREBOARD_HOME_RUN,
 	SCOREBOARD_NEXT_HALF,
 	SCOREBOARD_RESET_COUNT,
+	SCOREBOARD_AWAY_RUN_REMOVE,
+	SCOREBOARD_HOME_RUN_REMOVE,
+	SCOREBOARD_PREVIOUS_HALF,
 };
 
 struct scoreboard_state {

@@ -56,7 +56,7 @@ public:
 	float inning_flash = 0.0f;
 	unsigned flash_team = 0;
 	std::mutex mutex;
-	std::array<obs_hotkey_id, 7> hotkeys{};
+	std::array<obs_hotkey_id, 10> hotkeys{};
 
 	ScoreboardSource(obs_data_t *settings, obs_source_t *source_) : source(source_)
 	{
@@ -75,14 +75,18 @@ public:
 
 	void register_hotkeys()
 	{
-		static const char *names[] = {"Softball.Ball",    "Softball.Strike",  "Softball.Out",
-					      "Softball.AwayRun", "Softball.HomeRun", "Softball.NextHalf",
-					      "Softball.Undo"};
-		static const char *labels[] = {"ScoreboardBall",    "ScoreboardStrike",  "ScoreboardOut",
-					       "ScoreboardAwayRun", "ScoreboardHomeRun", "ScoreboardNextHalf",
-					       "ScoreboardUndo"};
-		static const obs_key_t keys[] = {OBS_KEY_NUM1, OBS_KEY_NUM2, OBS_KEY_NUM3, OBS_KEY_NUM4,
-						 OBS_KEY_NUM6, OBS_KEY_NUM5, OBS_KEY_NUM0};
+		static const char *names[] = {"Softball.Ball",          "Softball.Strike",
+					      "Softball.Out",           "Softball.AwayRun",
+					      "Softball.HomeRun",       "Softball.NextHalf",
+					      "Softball.Undo",          "Softball.AwayRunRemove",
+					      "Softball.HomeRunRemove", "Softball.PreviousHalf"};
+		static const char *labels[] = {"ScoreboardBall",          "ScoreboardStrike",
+					       "ScoreboardOut",           "ScoreboardAwayRun",
+					       "ScoreboardHomeRun",       "ScoreboardNextHalf",
+					       "ScoreboardUndo",          "ScoreboardAwayRunRemove",
+					       "ScoreboardHomeRunRemove", "ScoreboardPreviousHalf"};
+		static const obs_key_t keys[] = {OBS_KEY_NUM1, OBS_KEY_NUM2, OBS_KEY_NUM3, OBS_KEY_NUM4, OBS_KEY_NUM6,
+						 OBS_KEY_NUM5, OBS_KEY_NUM0, OBS_KEY_NUM7, OBS_KEY_NUM8, OBS_KEY_NUM9};
 		for (size_t i = 0; i < hotkeys.size(); ++i) {
 			hotkeys[i] =
 				obs_hotkey_register_source(source, names[i], obs_module_text(labels[i]), hotkey, this);
@@ -174,8 +178,8 @@ public:
 		board.state.strikes =
 			static_cast<unsigned char>(std::clamp(obs_data_get_int(settings, "strikes"), 0LL, 2LL));
 		board.state.outs = static_cast<unsigned char>(std::clamp(obs_data_get_int(settings, "outs"), 0LL, 2LL));
-		board.state.inning =
-			static_cast<unsigned char>(std::clamp(obs_data_get_int(settings, "inning"), 0LL, 6LL));
+		board.state.inning = static_cast<unsigned char>(
+			std::clamp(obs_data_get_int(settings, "inning"), 0LL, SCOREBOARD_INNINGS - 1LL));
 		board.state.bottom = obs_data_get_bool(settings, "bottom");
 		for (unsigned team = 0; team < 2; ++team)
 			for (unsigned inning = 0; inning < SCOREBOARD_INNINGS; ++inning) {
@@ -205,20 +209,19 @@ public:
 		Graphics graphics(&bitmap);
 		graphics.SetSmoothingMode(SmoothingModeAntiAlias);
 		graphics.SetTextRenderingHint(TextRenderingHintAntiAliasGridFit);
-		graphics.Clear(Color(0, 0, 0, 0));
+		graphics.Clear(Color(255, 255, 255, 255));
 
-		SolidBrush panel(Color(225, 13, 18, 27));
-		SolidBrush active(Color(255, 213, 50, 50));
-		Pen line(Color(110, 255, 255, 255), 2.0f);
+		SolidBrush panel(Color(255, 255, 255, 255));
+		SolidBrush active(Color(255, 220, 220, 220));
+		Pen line(Color(150, 0, 0, 0), 2.0f);
 		graphics.FillRectangle(&panel, Rect(0, 0, WIDTH, HEIGHT));
 
-		const Color white(255, 245, 247, 250);
-		const Color muted(255, 180, 190, 205);
-		const Color red(255, 255, 91, 91);
+		const Color ink(255, 0, 0, 0);
+		const Color muted(255, 55, 55, 55);
 		draw_text(graphics, L"BOLA", RectF(35, 38, 115, 65), 30, muted);
-		draw_text(graphics, std::to_wstring(board.state.balls), RectF(145, 38, 55, 65), 42, red);
+		draw_text(graphics, std::to_wstring(board.state.balls), RectF(145, 38, 55, 65), 42, ink);
 		draw_text(graphics, L"STRIKE", RectF(220, 38, 135, 65), 30, muted);
-		draw_text(graphics, std::to_wstring(board.state.strikes), RectF(350, 38, 55, 65), 42, red);
+		draw_text(graphics, std::to_wstring(board.state.strikes), RectF(350, 38, 55, 65), 42, ink);
 		const float out_pulse =
 			out_flash > 0.0f ? std::sin((1.0f - out_flash / OUT_FLASH_SECONDS) * 3.14159265f) : 0.0f;
 		if (out_pulse > 0.0f) {
@@ -227,18 +230,19 @@ public:
 		}
 		draw_text(graphics, L"OUT", RectF(425, 38, 90, 65), 30 + 5 * out_pulse, muted);
 		draw_text(graphics, std::to_wstring(board.state.outs), RectF(510, 38, 55, 65), 42 + 12 * out_pulse,
-			  red);
+			  ink);
 		std::wstring half = board.state.bottom ? L"BAJA " : L"ALTA ";
-		draw_text(graphics, half + std::to_wstring(board.state.inning + 1), RectF(930, 38, 300, 65), 38, white);
+		draw_text(graphics, half + std::to_wstring(board.state.inning + 1), RectF(930, 38, 300, 65), 38, ink);
 
-		constexpr float name_x = 15, name_w = 250, cell_w = 120, header_y = 170, row_h = 190;
+		constexpr float name_x = 15, name_w = 250, cell_w = 130, header_y = 170, row_h = 190;
 		for (unsigned inning = 0; inning < SCOREBOARD_INNINGS; ++inning) {
 			const float x = name_x + name_w + inning * cell_w;
 			if (inning == board.state.inning)
 				graphics.FillRectangle(&active, RectF(x + 5, header_y, cell_w - 10, 38));
-			draw_text(graphics, std::to_wstring(inning + 1), RectF(x, header_y, cell_w, 38), 23, white);
+			draw_text(graphics, std::to_wstring(inning + 1), RectF(x, header_y, cell_w, 38), 23, ink);
 		}
-		draw_text(graphics, L"TOTAL", RectF(name_x + name_w + 7 * cell_w, header_y, 160, 55), 25, muted);
+		draw_text(graphics, L"TOTAL", RectF(name_x + name_w + SCOREBOARD_INNINGS * cell_w, header_y, 220, 55),
+			  25, muted);
 
 		for (unsigned team = 0; team < 2; ++team) {
 			const float y = 230 + team * row_h;
@@ -250,25 +254,26 @@ public:
 				graphics.FillRectangle(&celebration, RectF(0, y, WIDTH, row_h));
 			}
 			draw_text(graphics, wide(team == 0 ? away.c_str() : home.c_str()),
-				  RectF(name_x, y, name_w - 15, row_h), 36, white, StringAlignmentNear);
+				  RectF(name_x, y, name_w - 15, row_h), 36, ink, StringAlignmentNear);
 			for (unsigned inning = 0; inning < SCOREBOARD_INNINGS; ++inning) {
 				const float x = name_x + name_w + inning * cell_w;
 				draw_text(graphics, std::to_wstring(board.state.runs[team][inning]),
-					  RectF(x, y, cell_w, row_h), 50, inning == board.state.inning ? red : white);
+					  RectF(x, y, cell_w, row_h), 50, ink);
 			}
 			draw_text(graphics, std::to_wstring(scoreboard_total(&board.state, team)),
-				  RectF(name_x + name_w + 7 * cell_w, y, 160, row_h), 58 + 14 * pulse, red);
+				  RectF(name_x + name_w + SCOREBOARD_INNINGS * cell_w, y, 220, row_h), 58 + 14 * pulse,
+				  ink);
 		}
 		graphics.DrawLine(&line, name_x, 225.0f, static_cast<float>(WIDTH - 15), 225.0f);
 		graphics.DrawLine(&line, name_x, 420.0f, static_cast<float>(WIDTH - 15), 420.0f);
 
 		if (inning_flash > 0.0f) {
 			const float pulse = std::sin((1.0f - inning_flash / INNING_FLASH_SECONDS) * 3.14159265f);
-			SolidBrush shade(Color(static_cast<BYTE>(215 * pulse), 4, 7, 14));
+			SolidBrush shade(Color(static_cast<BYTE>(230 * pulse), 235, 235, 235));
 			graphics.FillRectangle(&shade, RectF(0, 210, WIDTH, 300));
 			const std::wstring change = board.state.bottom ? L"CAMBIO · BAJA " : L"CAMBIO · ALTA ";
 			draw_text(graphics, change + std::to_wstring(board.state.inning + 1), RectF(0, 210, WIDTH, 300),
-				  70 + 14 * pulse, Color(static_cast<BYTE>(255 * pulse), 255, 190, 45));
+				  70 + 14 * pulse, Color(static_cast<BYTE>(255 * pulse), 0, 0, 0));
 		}
 
 		BitmapData bits{};
@@ -300,8 +305,14 @@ bool property_action(obs_properties_t *, obs_property_t *property, void *data)
 		source->apply(SCOREBOARD_AWAY_RUN);
 	else if (strcmp(name, "home_run") == 0)
 		source->apply(SCOREBOARD_HOME_RUN);
+	else if (strcmp(name, "away_run_remove") == 0)
+		source->apply(SCOREBOARD_AWAY_RUN_REMOVE);
+	else if (strcmp(name, "home_run_remove") == 0)
+		source->apply(SCOREBOARD_HOME_RUN_REMOVE);
 	else if (strcmp(name, "next_half") == 0)
 		source->apply(SCOREBOARD_NEXT_HALF);
+	else if (strcmp(name, "previous_half") == 0)
+		source->apply(SCOREBOARD_PREVIOUS_HALF);
 	return true;
 }
 
@@ -314,7 +325,10 @@ obs_properties_t *properties(void *data)
 	obs_properties_add_button2(props, "strike", obs_module_text("Strike"), property_action, data);
 	obs_properties_add_button2(props, "out", obs_module_text("Out"), property_action, data);
 	obs_properties_add_button2(props, "away_run", obs_module_text("AwayRun"), property_action, data);
+	obs_properties_add_button2(props, "away_run_remove", obs_module_text("AwayRunRemove"), property_action, data);
 	obs_properties_add_button2(props, "home_run", obs_module_text("HomeRun"), property_action, data);
+	obs_properties_add_button2(props, "home_run_remove", obs_module_text("HomeRunRemove"), property_action, data);
+	obs_properties_add_button2(props, "previous_half", obs_module_text("PreviousHalf"), property_action, data);
 	obs_properties_add_button2(props, "next_half", obs_module_text("NextHalf"), property_action, data);
 	obs_properties_add_button2(props, "undo", obs_module_text("Undo"), property_action, data);
 	return props;

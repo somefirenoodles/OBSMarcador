@@ -19,6 +19,14 @@ int main(void)
 
 	assert(scoreboard_apply(&board, SCOREBOARD_AWAY_RUN));
 	assert(scoreboard_total(&board.state, 0) == 1);
+	assert(scoreboard_apply(&board, SCOREBOARD_AWAY_RUN_REMOVE));
+	assert(scoreboard_total(&board.state, 0) == 0);
+	assert(!scoreboard_apply(&board, SCOREBOARD_AWAY_RUN_REMOVE));
+	assert(scoreboard_total(&board.state, 0) == 0);
+	assert(scoreboard_apply(&board, SCOREBOARD_HOME_RUN));
+	assert(scoreboard_apply(&board, SCOREBOARD_HOME_RUN_REMOVE));
+	assert(scoreboard_total(&board.state, 1) == 0);
+	assert(scoreboard_apply(&board, SCOREBOARD_AWAY_RUN));
 	assert(scoreboard_undo(&board));
 	assert(scoreboard_total(&board.state, 0) == 0);
 
@@ -28,6 +36,13 @@ int main(void)
 	for (int i = 0; i < 3; ++i)
 		assert(scoreboard_apply(&board, SCOREBOARD_OUT));
 	assert(!board.state.bottom && board.state.inning == 1);
+	assert(scoreboard_apply(&board, SCOREBOARD_PREVIOUS_HALF));
+	assert(board.state.bottom && board.state.inning == 0);
+	assert(scoreboard_apply(&board, SCOREBOARD_PREVIOUS_HALF));
+	assert(!board.state.bottom && board.state.inning == 0);
+	assert(!scoreboard_apply(&board, SCOREBOARD_PREVIOUS_HALF));
+
+	assert(SCOREBOARD_INNINGS == 6);
 
 	puts("scoreboard logic: ok");
 	return 0;

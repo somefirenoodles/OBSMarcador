@@ -1,6 +1,6 @@
 # Marcador de Softball para OBS
 
-Fuente nativa y transparente para OBS Studio en Windows. Mantiene bolas, strikes, outs, media entrada y carreras por entrada para dos equipos.
+Fuente nativa para OBS Studio en Windows, con fondo blanco y texto negro. Mantiene bolas, strikes, outs, media entrada y carreras por entrada para dos equipos.
 
 ## Instalación
 
@@ -24,6 +24,9 @@ No requiere terminal, servidor, cuenta ni configuración de red.
 | `4` | Carrera visitante |
 | `5` | Siguiente media entrada |
 | `6` | Carrera local |
+| `7` | Quitar carrera visitante |
+| `8` | Quitar carrera local |
+| `9` | Media entrada anterior |
 | `0` | Deshacer |
 
 Las mismas acciones aparecen como botones en las propiedades de la fuente. OBS permite cambiar cualquier tecla desde **Ajustes → Teclas rápidas**.
@@ -33,7 +36,7 @@ Las mismas acciones aparecen como botones en las propiedades de la fuente. OBS p
 - Cuatro bolas limpian bolas y strikes.
 - Tres strikes suman un out.
 - Tres outs cambian de media entrada.
-- El partido usa siete entradas.
+- El partido usa seis entradas.
 
 ## Desarrollo (solo para programadores)
 
