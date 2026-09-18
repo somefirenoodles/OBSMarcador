@@ -1,6 +1,6 @@
 # Marcador de Softball para OBS
 
-Fuente nativa para OBS Studio en Windows, con fondo blanco y texto negro. Mantiene bolas, strikes, outs, media entrada y carreras por entrada para dos equipos.
+Fuente nativa para OBS Studio en Windows, con modos día y noche. Mantiene bolas, strikes, outs, media entrada y carreras por entrada para dos equipos.
 
 ## Instalación
 
@@ -14,7 +14,8 @@ No requiere terminal, servidor, cuenta ni configuración de red.
 
 1. Agrega la fuente **Marcador de Softball**.
 2. Escribe los nombres de los equipos en sus propiedades.
-3. Usa el teclado numérico:
+3. Activa **Modo día** solamente cuando necesites el fondo blanco.
+4. Usa el teclado numérico:
 
 | Tecla | Acción |
 |---|---|

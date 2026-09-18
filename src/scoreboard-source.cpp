@@ -48,6 +48,7 @@ public:
 	struct scoreboard board{};
 	std::string away = "VISITANTE";
 	std::string home = "LOCAL";
+	bool day_mode = false;
 	gs_texture_t *texture = nullptr;
 	std::vector<uint8_t> pixels;
 	bool texture_dirty = false;
@@ -173,6 +174,7 @@ public:
 		std::lock_guard<std::mutex> lock(mutex);
 		away = obs_data_get_string(settings, "away_name");
 		home = obs_data_get_string(settings, "home_name");
+		day_mode = obs_data_get_bool(settings, "day_mode");
 		board.state.balls =
 			static_cast<unsigned char>(std::clamp(obs_data_get_int(settings, "balls"), 0LL, 3LL));
 		board.state.strikes =
@@ -209,43 +211,44 @@ public:
 		Graphics graphics(&bitmap);
 		graphics.SetSmoothingMode(SmoothingModeAntiAlias);
 		graphics.SetTextRenderingHint(TextRenderingHintAntiAliasGridFit);
-		graphics.Clear(Color(255, 255, 255, 255));
+		const Color background = day_mode ? Color(255, 255, 255, 255) : Color(255, 13, 18, 27);
+		const Color ink = day_mode ? Color(255, 0, 0, 0) : Color(255, 245, 247, 250);
+		const Color muted = day_mode ? Color(255, 55, 55, 55) : Color(255, 180, 190, 205);
+		graphics.Clear(background);
 
-		SolidBrush panel(Color(255, 255, 255, 255));
-		SolidBrush active(Color(255, 220, 220, 220));
-		Pen line(Color(150, 0, 0, 0), 2.0f);
+		SolidBrush panel(background);
+		SolidBrush active(day_mode ? Color(255, 220, 220, 220) : Color(255, 100, 24, 34));
+		Pen line(day_mode ? Color(150, 0, 0, 0) : Color(110, 255, 255, 255), 3.0f);
 		graphics.FillRectangle(&panel, Rect(0, 0, WIDTH, HEIGHT));
 
-		const Color ink(255, 0, 0, 0);
-		const Color muted(255, 55, 55, 55);
-		draw_text(graphics, L"BOLA", RectF(35, 38, 115, 65), 30, muted);
-		draw_text(graphics, std::to_wstring(board.state.balls), RectF(145, 38, 55, 65), 42, ink);
-		draw_text(graphics, L"STRIKE", RectF(220, 38, 135, 65), 30, muted);
-		draw_text(graphics, std::to_wstring(board.state.strikes), RectF(350, 38, 55, 65), 42, ink);
+		draw_text(graphics, L"BOLA", RectF(25, 20, 125, 95), 40, muted);
+		draw_text(graphics, std::to_wstring(board.state.balls), RectF(145, 20, 70, 95), 66, ink);
+		draw_text(graphics, L"STRIKE", RectF(220, 20, 155, 95), 40, muted);
+		draw_text(graphics, std::to_wstring(board.state.strikes), RectF(370, 20, 70, 95), 66, ink);
 		const float out_pulse =
 			out_flash > 0.0f ? std::sin((1.0f - out_flash / OUT_FLASH_SECONDS) * 3.14159265f) : 0.0f;
 		if (out_pulse > 0.0f) {
 			SolidBrush out_glow(Color(static_cast<BYTE>(190 * out_pulse), 255, 40, 40));
-			graphics.FillRectangle(&out_glow, RectF(415, 25, 165, 90));
+			graphics.FillRectangle(&out_glow, RectF(455, 15, 190, 105));
 		}
-		draw_text(graphics, L"OUT", RectF(425, 38, 90, 65), 30 + 5 * out_pulse, muted);
-		draw_text(graphics, std::to_wstring(board.state.outs), RectF(510, 38, 55, 65), 42 + 12 * out_pulse,
+		draw_text(graphics, L"OUT", RectF(465, 20, 105, 95), 40 + 7 * out_pulse, muted);
+		draw_text(graphics, std::to_wstring(board.state.outs), RectF(570, 20, 70, 95), 66 + 14 * out_pulse,
 			  ink);
 		std::wstring half = board.state.bottom ? L"BAJA " : L"ALTA ";
-		draw_text(graphics, half + std::to_wstring(board.state.inning + 1), RectF(930, 38, 300, 65), 38, ink);
+		draw_text(graphics, half + std::to_wstring(board.state.inning + 1), RectF(900, 20, 340, 95), 54, ink);
 
-		constexpr float name_x = 15, name_w = 250, cell_w = 130, header_y = 170, row_h = 190;
+		constexpr float name_x = 15, name_w = 250, cell_w = 130, header_y = 145, row_h = 230;
 		for (unsigned inning = 0; inning < SCOREBOARD_INNINGS; ++inning) {
 			const float x = name_x + name_w + inning * cell_w;
 			if (inning == board.state.inning)
-				graphics.FillRectangle(&active, RectF(x + 5, header_y, cell_w - 10, 38));
-			draw_text(graphics, std::to_wstring(inning + 1), RectF(x, header_y, cell_w, 38), 23, ink);
+				graphics.FillRectangle(&active, RectF(x + 5, header_y, cell_w - 10, 60));
+			draw_text(graphics, std::to_wstring(inning + 1), RectF(x, header_y, cell_w, 60), 38, ink);
 		}
-		draw_text(graphics, L"TOTAL", RectF(name_x + name_w + SCOREBOARD_INNINGS * cell_w, header_y, 220, 55),
-			  25, muted);
+		draw_text(graphics, L"TOTAL", RectF(name_x + name_w + SCOREBOARD_INNINGS * cell_w, header_y, 220, 60),
+			  34, muted);
 
 		for (unsigned team = 0; team < 2; ++team) {
-			const float y = 230 + team * row_h;
+			const float y = 210 + team * row_h;
 			const float pulse = run_flash > 0.0f && team == flash_team
 						    ? std::sin((1.0f - run_flash / RUN_FLASH_SECONDS) * 3.14159265f)
 						    : 0.0f;
@@ -254,26 +257,29 @@ public:
 				graphics.FillRectangle(&celebration, RectF(0, y, WIDTH, row_h));
 			}
 			draw_text(graphics, wide(team == 0 ? away.c_str() : home.c_str()),
-				  RectF(name_x, y, name_w - 15, row_h), 36, ink, StringAlignmentNear);
+				  RectF(name_x, y, name_w - 15, row_h), 48, ink, StringAlignmentNear);
 			for (unsigned inning = 0; inning < SCOREBOARD_INNINGS; ++inning) {
 				const float x = name_x + name_w + inning * cell_w;
 				draw_text(graphics, std::to_wstring(board.state.runs[team][inning]),
-					  RectF(x, y, cell_w, row_h), 50, ink);
+					  RectF(x, y, cell_w, row_h), 88, ink);
 			}
 			draw_text(graphics, std::to_wstring(scoreboard_total(&board.state, team)),
-				  RectF(name_x + name_w + SCOREBOARD_INNINGS * cell_w, y, 220, row_h), 58 + 14 * pulse,
+				  RectF(name_x + name_w + SCOREBOARD_INNINGS * cell_w, y, 220, row_h), 108 + 16 * pulse,
 				  ink);
 		}
-		graphics.DrawLine(&line, name_x, 225.0f, static_cast<float>(WIDTH - 15), 225.0f);
-		graphics.DrawLine(&line, name_x, 420.0f, static_cast<float>(WIDTH - 15), 420.0f);
+		graphics.DrawLine(&line, name_x, 205.0f, static_cast<float>(WIDTH - 15), 205.0f);
+		graphics.DrawLine(&line, name_x, 440.0f, static_cast<float>(WIDTH - 15), 440.0f);
 
 		if (inning_flash > 0.0f) {
 			const float pulse = std::sin((1.0f - inning_flash / INNING_FLASH_SECONDS) * 3.14159265f);
-			SolidBrush shade(Color(static_cast<BYTE>(230 * pulse), 235, 235, 235));
+			SolidBrush shade(day_mode ? Color(static_cast<BYTE>(230 * pulse), 235, 235, 235)
+						  : Color(static_cast<BYTE>(230 * pulse), 4, 7, 14));
 			graphics.FillRectangle(&shade, RectF(0, 210, WIDTH, 300));
 			const std::wstring change = board.state.bottom ? L"CAMBIO · BAJA " : L"CAMBIO · ALTA ";
 			draw_text(graphics, change + std::to_wstring(board.state.inning + 1), RectF(0, 210, WIDTH, 300),
-				  70 + 14 * pulse, Color(static_cast<BYTE>(255 * pulse), 0, 0, 0));
+				  70 + 14 * pulse,
+				  day_mode ? Color(static_cast<BYTE>(255 * pulse), 0, 0, 0)
+					   : Color(static_cast<BYTE>(255 * pulse), 255, 190, 45));
 		}
 
 		BitmapData bits{};
@@ -321,16 +327,21 @@ obs_properties_t *properties(void *data)
 	obs_properties_t *props = obs_properties_create();
 	obs_properties_add_text(props, "away_name", obs_module_text("AwayName"), OBS_TEXT_DEFAULT);
 	obs_properties_add_text(props, "home_name", obs_module_text("HomeName"), OBS_TEXT_DEFAULT);
-	obs_properties_add_button2(props, "ball", obs_module_text("Ball"), property_action, data);
-	obs_properties_add_button2(props, "strike", obs_module_text("Strike"), property_action, data);
-	obs_properties_add_button2(props, "out", obs_module_text("Out"), property_action, data);
-	obs_properties_add_button2(props, "away_run", obs_module_text("AwayRun"), property_action, data);
-	obs_properties_add_button2(props, "away_run_remove", obs_module_text("AwayRunRemove"), property_action, data);
-	obs_properties_add_button2(props, "home_run", obs_module_text("HomeRun"), property_action, data);
-	obs_properties_add_button2(props, "home_run_remove", obs_module_text("HomeRunRemove"), property_action, data);
-	obs_properties_add_button2(props, "previous_half", obs_module_text("PreviousHalf"), property_action, data);
-	obs_properties_add_button2(props, "next_half", obs_module_text("NextHalf"), property_action, data);
-	obs_properties_add_button2(props, "undo", obs_module_text("Undo"), property_action, data);
+	obs_properties_add_bool(props, "day_mode", obs_module_text("DayMode"));
+	obs_properties_t *controls = obs_properties_create();
+	obs_properties_add_button2(controls, "ball", obs_module_text("Ball"), property_action, data);
+	obs_properties_add_button2(controls, "strike", obs_module_text("Strike"), property_action, data);
+	obs_properties_add_button2(controls, "out", obs_module_text("Out"), property_action, data);
+	obs_properties_add_button2(controls, "away_run", obs_module_text("AwayRun"), property_action, data);
+	obs_properties_add_button2(controls, "away_run_remove", obs_module_text("AwayRunRemove"), property_action,
+				   data);
+	obs_properties_add_button2(controls, "home_run", obs_module_text("HomeRun"), property_action, data);
+	obs_properties_add_button2(controls, "home_run_remove", obs_module_text("HomeRunRemove"), property_action,
+				   data);
+	obs_properties_add_button2(controls, "previous_half", obs_module_text("PreviousHalf"), property_action, data);
+	obs_properties_add_button2(controls, "next_half", obs_module_text("NextHalf"), property_action, data);
+	obs_properties_add_button2(controls, "undo", obs_module_text("Undo"), property_action, data);
+	obs_properties_add_group(props, "controls", obs_module_text("Controls"), OBS_GROUP_NORMAL, controls);
 	return props;
 }
 } // namespace
@@ -367,6 +378,7 @@ extern "C" bool scoreboard_source_register(void)
 	info.get_defaults = [](obs_data_t *settings) {
 		obs_data_set_default_string(settings, "away_name", "VISITANTE");
 		obs_data_set_default_string(settings, "home_name", "LOCAL");
+		obs_data_set_default_bool(settings, "day_mode", false);
 	};
 	info.video_render = [](void *data, gs_effect_t *) {
 		auto *scoreboard = static_cast<ScoreboardSource *>(data);
